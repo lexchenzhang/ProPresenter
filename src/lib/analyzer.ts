@@ -8,6 +8,7 @@
 
 import { canonicalFamily, type FontOption } from './fonts'
 import { boxSize, boxFont, boxText, type ProDoc, type TextBox } from './proDoc'
+import { planScripture, type ScripturePlan } from './scripture'
 
 export interface FileEntry {
   name: string
@@ -80,6 +81,11 @@ export interface FixConfig {
   targetFont: FontOption
   /** canonicalize the family-name field even when keeping the original font */
   fixFamilyMeta: boolean
+  /**
+   * Rebuild scripture (宣召/读经) verse boxes into the hand-fixed layout:
+   * superscript verse numbers at half size + shrink-to-fit size bookkeeping.
+   */
+  scriptureReformat?: boolean
   sizePolicy: SizePolicy
   globalSize: number
   /**
@@ -101,6 +107,8 @@ export interface FixEdit {
   setFont: FontOption | null
   fixMeta: boolean
   setSize: number | null
+  /** verse-box rebuild (节号上标 + 自适应字号), when the box qualifies */
+  scripture: ScripturePlan | null
 }
 
 // ---------------------------------------------------------------------------
@@ -320,10 +328,22 @@ export function buildPlan(files: FileEntry[], config: FixConfig): FixEdit[] {
         }
       }
 
+      // --- scripture verse layout ---
+      // Gated on the box's primary (base) font being a source font: the
+      // rebuild writes every run in the base font, so a box whose base is
+      // some other font must not be rebuilt (it would defeat a remap).
+      const scripture =
+        config.scriptureReformat && primary && sourceSet.has(primary.ps)
+          ? planScripture(box, doc.boxes, doc.canvasH)
+          : null
+
       // --- size ---
       let setSize: number | null = null
       let afterSize = curSize
-      if (modes) {
+      if (scripture) {
+        // the rebuild owns this box's sizes; show the on-screen (effective) size
+        afterSize = scripture.effectivePt
+      } else if (modes) {
         const m = modes.get(groupKey(box, config.sizePolicy))
         if (m != null && curSize != null && m !== curSize) {
           setSize = m
@@ -336,7 +356,7 @@ export function buildPlan(files: FileEntry[], config: FixConfig): FixEdit[] {
         }
       }
 
-      if (setFont || fixMeta || setSize != null) {
+      if (setFont || fixMeta || setSize != null || scripture) {
         edits.push({
           file: name,
           index,
@@ -347,6 +367,7 @@ export function buildPlan(files: FileEntry[], config: FixConfig): FixEdit[] {
           setFont,
           fixMeta,
           setSize,
+          scripture,
         })
       }
     })

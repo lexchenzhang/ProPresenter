@@ -123,6 +123,11 @@ export default function ReportTable({
                             <td className="py-1">
                               {edit ? (
                                 <span className="text-indigo-600">
+                                  {edit.scripture && (
+                                    <span className="mr-1 rounded bg-emerald-100 px-1 py-0.5 text-[10px] font-medium text-emerald-700">
+                                      经文排版
+                                    </span>
+                                  )}
                                   → {edit.after.ps}
                                   {edit.after.size !== edit.before.size && ` · ${edit.after.size}pt`}
                                 </span>

@@ -175,9 +175,17 @@ export interface TextBox {
   name: string
   /** geometry signature "x,y,w,h" (rounded) for grouping the same box across slides */
   boundsSig: string | null
+  /** enclosing element origin/size in points (un-rounded), when known */
+  boundsY: number | null
+  boundsW: number | null
+  boundsH: number | null
+  /** the enclosing element's bounds message ({1: origin, 2: size}), for geometry edits */
+  boundsNode: Node | null
   /** distinct font descriptors present in the box (base attributes + runs) */
   descriptors: FontDescriptor[]
   // ---- editing handles (internal) ----
+  /** the text message's own fields (attributes, RTF, …) */
+  textNodes: Node[]
   fontNodes: Node[]
   rtfNode: Node | null
 }
@@ -185,6 +193,10 @@ export interface TextBox {
 interface Ctx {
   name: string
   boundsSig: string | null
+  boundsY: number | null
+  boundsW: number | null
+  boundsH: number | null
+  boundsNode: Node | null
 }
 
 // Real documents nest ~12 levels; this bounds a pathological/hostile file so
@@ -195,12 +207,15 @@ export class ProDoc {
   readonly name: string
   private root: Node[]
   readonly boxes: TextBox[]
+  /** slide canvas size in points (e.g. 1920×1080), when found */
+  canvasW: number | null = null
+  canvasH: number | null = null
 
   constructor(bytes: Uint8Array) {
     this.root = toTree(decode(bytes))
     this.name = getString(this.root, 3) ?? ''
     this.boxes = []
-    this.walk(this.root, { name: '', boundsSig: null }, 0)
+    this.walk(this.root, { name: '', boundsSig: null, boundsY: null, boundsW: null, boundsH: null, boundsNode: null }, 0)
   }
 
   serialize(): Uint8Array {
@@ -216,11 +231,41 @@ export class ProDoc {
     // box would appear under many different names.
     let name = ctx.name
     let boundsSig = ctx.boundsSig
+    let boundsY = ctx.boundsY
+    let boundsW = ctx.boundsW
+    let boundsH = ctx.boundsH
+    let boundsNode = ctx.boundsNode
     let foundBounds = false
+    // The slide message carries its canvas size as field 6 = {1:w, 2:h}
+    // (doubles). Record the first plausible one — geometry edits are gated on it.
+    if (this.canvasW == null && depth <= 8) {
+      for (const n of nodes) {
+        if (n.field !== 6 || n.wire !== 2 || !looksLikeMessage(n.value as Uint8Array)) continue
+        let sub: Node[]
+        try {
+          sub = expand(n)
+        } catch {
+          continue
+        }
+        if (sub.length !== 2 || sub[0].field !== 1 || sub[1].field !== 2) continue
+        if (sub[0].wire !== 1 || sub[1].wire !== 1) continue
+        const w = readDouble(sub[0].value as Uint8Array)
+        const h = readDouble(sub[1].value as Uint8Array)
+        if (w >= 640 && w <= 7680 && h >= 360 && h <= 4320) {
+          this.canvasW = w
+          this.canvasH = h
+          break
+        }
+      }
+    }
     for (const n of nodes) {
       const b = readBounds(n)
       if (b) {
         boundsSig = `${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.w)},${Math.round(b.h)}`
+        boundsY = b.y
+        boundsW = b.w
+        boundsH = b.h
+        boundsNode = n
         foundBounds = true
         break
       }
@@ -229,7 +274,7 @@ export class ProDoc {
       const nameHere = getString(nodes, 2)
       name = isPlausibleString(nameHere) ? nameHere : ''
     }
-    const childCtx: Ctx = { name, boundsSig }
+    const childCtx: Ctx = { name, boundsSig, boundsY, boundsW, boundsH, boundsNode }
 
     // Is this message a text box? (directly contains an RTF field)
     let rtfNode: Node | null = null
@@ -250,7 +295,12 @@ export class ProDoc {
           role: childCtx.boundsSig ? 'content' : 'label',
           name: childCtx.name,
           boundsSig: childCtx.boundsSig,
+          boundsY: childCtx.boundsY,
+          boundsW: childCtx.boundsW,
+          boundsH: childCtx.boundsH,
+          boundsNode: childCtx.boundsNode,
           descriptors,
+          textNodes: nodes,
           fontNodes,
           rtfNode,
         })

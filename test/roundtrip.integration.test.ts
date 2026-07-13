@@ -11,7 +11,7 @@ const FIXTURE_DIR = join(__dirname, '..', '.local-fixtures')
 
 function findPlaylist(): string | null {
   if (!existsSync(FIXTURE_DIR)) return null
-  const f = readdirSync(FIXTURE_DIR).find((n) => n.endsWith('.proPlaylist'))
+  const f = readdirSync(FIXTURE_DIR).sort().find((n) => n.endsWith('.proPlaylist'))
   return f ? join(FIXTURE_DIR, f) : null
 }
 

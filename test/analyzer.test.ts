@@ -11,7 +11,12 @@ function box(descriptors: FontDescriptor[]): TextBox {
     role: 'content',
     name: '',
     boundsSig: '0,0,10,10',
+    boundsY: 0,
+    boundsW: 10,
+    boundsH: 10,
+    boundsNode: null,
     descriptors,
+    textNodes: [],
     fontNodes: [],
     rtfNode: null,
   }

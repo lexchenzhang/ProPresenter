@@ -5,6 +5,7 @@
 
 import { DEFAULT_TARGET_FONT } from './fonts'
 import { ProDoc, setBoxFont, fixBoxFamilyMeta, setBoxSize } from './proDoc'
+import { applyScripture } from './scripture'
 import {
   buildPlan,
   type FileEntry,
@@ -46,6 +47,7 @@ export function defaultConfig(report: PlaylistReport): FixConfig {
     remapFont: true,
     targetFont: DEFAULT_TARGET_FONT,
     fixFamilyMeta: true,
+    scriptureReformat: true,
     sizePolicy: 'keep',
     globalSize: 165,
     selectedFiles: [],
@@ -59,6 +61,12 @@ export function applyPlan(plan: FixEdit[]): void {
     if (e.setFont) setBoxFont(e.box, e.setFont, fromNames)
     else if (e.fixMeta) fixBoxFamilyMeta(e.box, fromNames)
     if (e.setSize != null) setBoxSize(e.box, e.setSize)
+    // last, so the rebuild picks up the (possibly just-normalized) font;
+    // planScripture pre-verified the box, so a failure here is a real bug —
+    // surface it instead of silently shipping a half-fixed playlist
+    if (e.scripture && !applyScripture(e.box, e.scripture)) {
+      throw new Error(`经文排版失败：${e.file} 第 ${e.index + 1} 个文本框结构异常`)
+    }
   }
 }
 

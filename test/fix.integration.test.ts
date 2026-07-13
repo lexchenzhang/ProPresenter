@@ -12,7 +12,7 @@ import { decode, encode } from '../src/lib/protobuf'
 const FIXTURE_DIR = join(__dirname, '..', '.local-fixtures')
 function findPlaylist(): string | null {
   if (!existsSync(FIXTURE_DIR)) return null
-  const f = readdirSync(FIXTURE_DIR).find((n) => n.endsWith('.proPlaylist'))
+  const f = readdirSync(FIXTURE_DIR).sort().find((n) => n.endsWith('.proPlaylist'))
   return f ? join(FIXTURE_DIR, f) : null
 }
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -49,11 +49,17 @@ maybe('end-to-end fix', () => {
     const before = await proEntries(raw)
 
     // analyze + fix — select EVERY presentation to exercise the full normalize.
+    // scriptureReformat is off here: this test pins the font/metadata path's
+    // "sizes untouched" invariant; the verse-box rebuild has its own suite.
     const pl = await loadPlaylist(new Uint8Array(raw), 'test.proPlaylist')
     const { files, failed } = await buildDocs(pl)
     expect(failed).toEqual([])
     const report = analyze(files)
-    const config = { ...defaultConfig(report), selectedFiles: files.map((f) => f.name) }
+    const config = {
+      ...defaultConfig(report),
+      selectedFiles: files.map((f) => f.name),
+      scriptureReformat: false,
+    }
     const { buildPlan } = await import('../src/lib/analyzer')
     const plan = buildPlan(files, config)
     expect(plan.length).toBeGreaterThan(0)

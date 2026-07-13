@@ -162,6 +162,22 @@ export default function ConfigPanel({
         </label>
       </section>
 
+      {/* 经文排版 */}
+      <section className="space-y-1">
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <input
+            type="checkbox"
+            checked={config.scriptureReformat ?? false}
+            onChange={(e) => set({ scriptureReformat: e.target.checked })}
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600"
+          />
+          经文页排版修复（节号上标 + 字号自适应）
+        </label>
+        <p className="ml-6 text-xs text-slate-400">
+          将宣召/读经的经文框重排成人工修复版的格式：节号缩小为右上角上标，正文统一字号并按文本框大小自动缩放。只影响带节号的经文框。
+        </p>
+      </section>
+
       {/* 字号 */}
       <section className="space-y-2">
         <div className="text-sm font-medium text-slate-700">字号</div>
